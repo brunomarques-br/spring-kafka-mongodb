@@ -172,8 +172,6 @@ services:
       - DB_PASSWORD=postgres
     ports:
       - 8092:8092
-      -
 networks:
   orchestrator-saga:
     driver: bridge
-
