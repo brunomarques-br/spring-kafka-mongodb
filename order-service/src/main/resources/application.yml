@@ -1,0 +1,26 @@
+server:
+  port: 3000
+
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKER:localhost:9092}
+    topic:
+      start-saga: start-saga
+      notify-ending: notify-ending
+    consumer:
+      group-id: order-group
+      # sempre processar a partir do ultimo evento
+      auto-offset-reset: latest
+
+  data:
+    mongodb:
+      uri: ${MONGO_DB_URI:mongodb://admin:123456@localhost:27017}
+      database: admin
+
+
+# desabilita o log do kafka
+logging:
+  level:
+    org:
+      apache:
+        kafka: OFF
