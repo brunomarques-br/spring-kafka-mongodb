@@ -43,7 +43,7 @@ public class EventService {
     }
 
     private Event findByOrderId(String orderId) {
-        return repository.findTop1ByOrderByCreatedAtDesc(orderId).orElseThrow(
+        return repository.findTop1ByOrderIdOrderByCreatedAtDesc(orderId).orElseThrow(
                 () -> new ValidationException("Order not found by orderId")
         );
     }

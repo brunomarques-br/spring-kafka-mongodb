@@ -12,7 +12,7 @@ public interface EventRepository extends MongoRepository<Event, String> {
     List<Event> findAllByOrderByCreatedAtDesc();
 
     // This method is used to find a last event by order id.
-    Optional<Event> findTop1ByOrderByCreatedAtDesc(String orderId);
+    Optional<Event> findTop1ByOrderIdOrderByCreatedAtDesc(String orderId);
 
     // This method is used to find a last event by transaction id.
     Optional<Event> findTop1ByTransactionIdOrderByCreatedAtDesc(String transactionId);
