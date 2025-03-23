@@ -5,7 +5,10 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BROKER:localhost:9092}
     topic:
-      teste: teste
+      start-saga: start-saga
+      orchestrator: orchestrator
+      finish-success: finish-success
+      finish-fail: finish-fail
     consumer:
       group-id: orcherstrator-group
       # sempre processar a partir do ultimo evento
