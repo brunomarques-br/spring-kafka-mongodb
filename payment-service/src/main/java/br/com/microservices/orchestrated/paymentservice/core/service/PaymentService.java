@@ -4,7 +4,6 @@ import br.com.microservices.orchestrated.paymentservice.config.exception.Validat
 import br.com.microservices.orchestrated.paymentservice.core.dto.Event;
 import br.com.microservices.orchestrated.paymentservice.core.dto.History;
 import br.com.microservices.orchestrated.paymentservice.core.dto.OrderProducts;
-import br.com.microservices.orchestrated.paymentservice.core.enums.EPaymentStatus;
 import br.com.microservices.orchestrated.paymentservice.core.enums.ESagaStatus;
 import br.com.microservices.orchestrated.paymentservice.core.model.Payment;
 import br.com.microservices.orchestrated.paymentservice.core.producer.KafkaProducer;
@@ -31,6 +30,11 @@ public class PaymentService {
     private final KafkaProducer kafkaProducer;
     private final PaymentRepository paymentRepository;
 
+    /**
+     * Method to realize the payment
+     *
+     * @param event
+     */
     public void realizePayment(Event event) {
         try {
             checkCurrentValidation(event);
@@ -45,6 +49,11 @@ public class PaymentService {
         kafkaProducer.sendEvent(jsonUtil.toJson(event));
     }
 
+    /**
+     * Method to check if the current validation is valid
+     *
+     * @param event
+     */
     private void checkCurrentValidation(Event event) {
 
         if (paymentRepository.existsByOrderIdAndTransactionId(event.getPayload().getId(), event.getTransactionId())) {
@@ -53,6 +62,11 @@ public class PaymentService {
 
     }
 
+    /**
+     * Method to create a pending payment
+     *
+     * @param event
+     */
     private void createPendingPayment(Event event) {
         var totalAmount = calculateAmount(event);
         var totalItems = calculateTotalItems(event);
@@ -66,31 +80,55 @@ public class PaymentService {
         setEventAmountItems(event, payment);
     }
 
+    /**
+     * Method to save the payment in the database
+     *
+     * @param payment
+     */
     private void save(Payment payment) {
         paymentRepository.save(payment);
     }
 
+    /**
+     * Method to calculate the total amount in the event
+     *
+     * @param event
+     * @return double
+     */
     private double calculateAmount(Event event) {
         return event.getPayload().getProducts().stream()
                 .map(product -> product.getQuantity() * product.getProduct().getUnitValue())
                 .reduce(REDUCE_SUM_VALUE, Double::sum);
     }
 
+    /**
+     * Method to calculate the total items in the event
+     *
+     * @param event
+     * @return int
+     */
     private int calculateTotalItems(Event event) {
         return event.getPayload().getProducts().stream()
                 .map(OrderProducts::getQuantity)
                 .reduce(REDUCE_SUM_VALUE.intValue(), Integer::sum);
     }
 
+    /**
+     * Method to set the total amount and total items in the event
+     *
+     * @param event
+     * @param payment
+     */
     private void setEventAmountItems(Event event, Payment payment) {
         event.getPayload().setTotalAmount(payment.getTotalAmount());
         event.getPayload().setTotalItems(payment.getTotalItems());
     }
 
     /**
+     * Method to find a payment by orderId and transactionId
+     *
      * @param event
      * @return Payment
-     * Method to find a payment by orderId and transactionId
      */
     private Payment findByOrderIdAndTransactionId(Event event) {
         return paymentRepository.findByOrderIdAndTransactionId(event.getPayload().getId(), event.getTransactionId())
@@ -98,18 +136,20 @@ public class PaymentService {
     }
 
     /**
-     * @param amount
      * Method to validate the amount must be greater than 0.1
+     *
+     * @param amount
      */
-    private void validateAmount(double amount){
-        if (amount < MIN_AMOUNT_VALUE ) {
+    private void validateAmount(double amount) {
+        if (amount < MIN_AMOUNT_VALUE) {
             throw new ValidationException("Amount must be greater than: ".concat(MIN_AMOUNT_VALUE.toString()));
         }
     }
 
     /**
-     * @param payment
      * Method to change the payment status to SUCCESS
+     *
+     * @param payment
      */
     private void changePaymentToSuccess(Payment payment) {
         payment.setStatus(SUCCESS);
@@ -117,8 +157,9 @@ public class PaymentService {
     }
 
     /**
-     * @param event
      * Method to handle the success of the payment
+     *
+     * @param event
      */
     private void handleSuccess(Event event) {
         event.setStatus(ESagaStatus.SUCCESS);
@@ -127,9 +168,10 @@ public class PaymentService {
     }
 
     /**
+     * Method to add a history to the event
+     *
      * @param event
      * @param message
-     * Method to add a history to the event
      */
     private void addHistory(Event event, String message) {
         var history = History.builder()
