@@ -203,6 +203,7 @@ public class PaymentService {
         event.setStatus(FAIL);
         event.setSource(CURRENT_SOURCE);
         addHistory(event, "Rollback / Refund realized for payment!");
+        kafkaProducer.sendEvent(jsonUtil.toJson(event));
     }
 
     /**
