@@ -199,10 +199,14 @@ public class PaymentService {
      * @param event
      */
     public void realizeRefund(Event event){
-        changePaymentStatusToRefund(event);
         event.setStatus(FAIL);
         event.setSource(CURRENT_SOURCE);
-        addHistory(event, "Rollback / Refund realized for payment!");
+        try {
+            changePaymentStatusToRefund(event);
+            addHistory(event, "Rollback / Refund realized for payment!");
+        }catch (Exception e){
+            addHistory(event, "Rollback not executed for payment: ".concat(e.getMessage()));
+        }
         kafkaProducer.sendEvent(jsonUtil.toJson(event));
     }
 
