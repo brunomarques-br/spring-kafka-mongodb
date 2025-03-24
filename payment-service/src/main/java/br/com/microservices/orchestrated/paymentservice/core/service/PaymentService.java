@@ -191,7 +191,7 @@ public class PaymentService {
     private void handleFailCurrentNotExecuted(Event event, String message) {
         event.setStatus(ROLLBACK_PENDING);
         event.setSource(CURRENT_SOURCE);
-        addHistory(event, "Fail to realize payment".concat(message));
+        addHistory(event, "Fail to realize payment: ".concat(message));
     }
 
     /**
