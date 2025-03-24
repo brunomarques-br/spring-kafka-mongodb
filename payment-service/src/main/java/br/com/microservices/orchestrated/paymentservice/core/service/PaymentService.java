@@ -4,6 +4,7 @@ import br.com.microservices.orchestrated.paymentservice.config.exception.Validat
 import br.com.microservices.orchestrated.paymentservice.core.dto.Event;
 import br.com.microservices.orchestrated.paymentservice.core.dto.History;
 import br.com.microservices.orchestrated.paymentservice.core.dto.OrderProducts;
+import br.com.microservices.orchestrated.paymentservice.core.enums.EPaymentStatus;
 import br.com.microservices.orchestrated.paymentservice.core.enums.ESagaStatus;
 import br.com.microservices.orchestrated.paymentservice.core.model.Payment;
 import br.com.microservices.orchestrated.paymentservice.core.producer.KafkaProducer;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 
 import static br.com.microservices.orchestrated.paymentservice.core.enums.EPaymentStatus.SUCCESS;
+import static br.com.microservices.orchestrated.paymentservice.core.enums.ESagaStatus.FAIL;
+import static br.com.microservices.orchestrated.paymentservice.core.enums.ESagaStatus.ROLLBACK_PENDING;
 
 @Slf4j
 @Service
@@ -45,6 +48,7 @@ public class PaymentService {
             handleSuccess(event);
         } catch (Exception e) {
             log.error("Error trying to make payment", e);
+            handleFailCurrentNotExecuted(event, e.getMessage());
         }
         kafkaProducer.sendEvent(jsonUtil.toJson(event));
     }
@@ -181,6 +185,35 @@ public class PaymentService {
                 .createdAt(LocalDateTime.now())
                 .build();
         event.addToHistory(history);
+    }
+
+
+    private void handleFailCurrentNotExecuted(Event event, String message) {
+        event.setStatus(ROLLBACK_PENDING);
+        event.setSource(CURRENT_SOURCE);
+        addHistory(event, "Fail to realize payment".concat(message));
+    }
+
+    /**
+     * Method to realize the refund // rollback
+     * @param event
+     */
+    public void realizeRefund(Event event){
+        changePaymentStatusToRefund(event);
+        event.setStatus(FAIL);
+        event.setSource(CURRENT_SOURCE);
+        addHistory(event, "Rollback / Refund realized for payment!");
+    }
+
+    /**
+     * Method to change the payment status to REFUND
+     * @param event
+     */
+    private void changePaymentStatusToRefund(Event event) {
+        var payment = findByOrderIdAndTransactionId(event);
+        payment.setStatus(EPaymentStatus.REFUND);
+        setEventAmountItems(event, payment);
+        save(payment);
     }
 
 }
