@@ -18,6 +18,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
+import static br.com.microservices.orchestrated.inventoryservice.core.enums.ESagaStatus.FAIL;
+import static br.com.microservices.orchestrated.inventoryservice.core.enums.ESagaStatus.ROLLBACK_PENDING;
+
 @Slf4j
 @Service
 @AllArgsConstructor
@@ -30,6 +33,11 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final OrderInventoryRepository orderInventoryRepository;
 
+    /**
+     * Method to update the inventory
+     *
+     * @param event
+     */
     public void updateInventory(Event event) {
         try {
             checkCurrentValidation(event);
@@ -38,8 +46,46 @@ public class InventoryService {
             handleSuccess(event);
         } catch (Exception e) {
             log.error("Error trying to update inventory", e);
+            handleFailCurrentNotExecuted(event, e.getMessage());
         }
         kafkaProducer.sendEvent(jsonUtil.toJson(event));
+    }
+
+    /**
+     * Method to rollback the inventory
+     *
+     * @param event
+     */
+    public void rollbackInventory(Event event) {
+        event.setStatus(FAIL);
+        event.setSource(CURRENT_SOURCE);
+        try {
+            returnInventoryToPreviousValue(event);
+            addHistory(event, "Rollback realized for inventory!");
+        } catch (Exception e) {
+            addHistory(event, "Rollback not executed for inventory: ".concat(e.getMessage()));
+        }
+        kafkaProducer.sendEvent(jsonUtil.toJson(event));
+    }
+
+    /**
+     * Method to create a pending payment
+     *
+     * @param event
+     */
+    private void returnInventoryToPreviousValue(Event event) {
+        orderInventoryRepository.findByOrderIdAndTransactionId(
+                event.getPayload().getId(),
+                event.getTransactionId()
+        ).forEach(orderInventory -> {
+            var inventory = orderInventory.getInventory();
+            inventory.setAvaliable(orderInventory.getOldQuantity());
+            inventoryRepository.save(inventory);
+            log.info("Restored inventory for order: {} from: {} to {}",
+                    event.getPayload().getId(),
+                    orderInventory.getNewQuantity(),
+                    inventory.getAvaliable());
+        });
     }
 
     /**
@@ -56,6 +102,11 @@ public class InventoryService {
         }
     }
 
+    /**
+     * Method to create a pending payment
+     *
+     * @param event
+     */
     private void createOrderInventory(Event event) {
         event.getPayload().getProducts().forEach(product -> {
             var inventory = findInventoryByProductCode(product.getProduct().getCode());
@@ -64,7 +115,15 @@ public class InventoryService {
         });
     }
 
-    private OrderInventory createOrderInventory(Event event, OrderProducts product, Inventory inventory){
+    /**
+     * Method to create a order inventory
+     *
+     * @param event
+     * @param product
+     * @param inventory
+     * @return
+     */
+    private OrderInventory createOrderInventory(Event event, OrderProducts product, Inventory inventory) {
         return OrderInventory.builder()
                 .inventory(inventory)
                 .oldQuantity(inventory.getAvaliable())
@@ -75,6 +134,12 @@ public class InventoryService {
                 .build();
     }
 
+    /**
+     * Method to find the inventory by product code
+     *
+     * @param productCode
+     * @return
+     */
     private Inventory findInventoryByProductCode(String productCode) {
         return inventoryRepository.findByProductCode(productCode)
                 .orElseThrow(() -> new ValidationException("Inventory not found for product_code: " + productCode));
@@ -82,9 +147,10 @@ public class InventoryService {
 
     /**
      * Method to update the inventory for each product
+     *
      * @param order
      */
-    private void updateInventory(Order order){
+    private void updateInventory(Order order) {
         order.getProducts().forEach(product -> {
             var inventory = findInventoryByProductCode(product.getProduct().getCode());
             checkInventory(inventory.getAvaliable(), product.getQuantity());
@@ -95,6 +161,7 @@ public class InventoryService {
 
     /**
      * Method to check if the inventory is available
+     *
      * @param avaliable
      * @param orderQuantity
      */
@@ -130,5 +197,12 @@ public class InventoryService {
                 .build();
         event.addToHistory(history);
     }
+
+    private void handleFailCurrentNotExecuted(Event event, String message) {
+        event.setStatus(ROLLBACK_PENDING);
+        event.setSource(CURRENT_SOURCE);
+        addHistory(event, "Fail to update inventory: ".concat(message));
+    }
+
 
 }
