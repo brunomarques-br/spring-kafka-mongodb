@@ -48,7 +48,10 @@ public class InventoryService {
      * @param event
      */
     private void checkCurrentValidation(Event event) {
-        if (orderInventoryRepository.existsByOrderIdAndTransactionId(event.getPayload().getId(), event.getTransactionId())) {
+        if (orderInventoryRepository.existsByOrderIdAndTransactionId(
+                event.getPayload().getId(),
+                event.getTransactionId())
+        ) {
             throw new ValidationException("There's another transactionId for this validation.");
         }
     }
