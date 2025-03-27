@@ -1,6 +1,7 @@
 package br.com.microservices.orchestrated.orchestratorservice.core.consumer;
 
 
+import br.com.microservices.orchestrated.orchestratorservice.core.service.OrchestratorService;
 import br.com.microservices.orchestrated.orchestratorservice.core.utils.JsonUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
 @AllArgsConstructor
 public class SagaOrchestratorConsumer {
 
+    private final OrchestratorService orchestratorService;
     private final JsonUtil jsonUtil;
 
     // start-saga
@@ -22,10 +24,10 @@ public class SagaOrchestratorConsumer {
     public void consumeStartSagaEvent(String payload){
         log.info("SagaOrchestratorConsumer: Received event from start-saga topic with payload: {}", payload);
         var event = jsonUtil.toEvent(payload);
-        log.info(event.toString());
+        orchestratorService.startSaga(event);
     }
 
-    // orchestrator
+    // orchestrator continue saga
     @KafkaListener(
             groupId = "${spring.kafka.consumer.group-id}",
             topics = "${spring.kafka.topic.orchestrator}"
@@ -33,7 +35,7 @@ public class SagaOrchestratorConsumer {
     public void consumeOrchestratorEvent(String payload){
         log.info("SagaOrchestratorConsumer: Received event from orchestrator topic with payload: {}", payload);
         var event = jsonUtil.toEvent(payload);
-        log.info(event.toString());
+        orchestratorService.continueSaga(event);
     }
 
     // finish-success
@@ -44,7 +46,7 @@ public class SagaOrchestratorConsumer {
     public void consumeFinishSuccessEvent(String payload){
         log.info("SagaOrchestratorConsumer: Received event from finish-success topic with payload: {}", payload);
         var event = jsonUtil.toEvent(payload);
-        log.info(event.toString());
+        orchestratorService.finishSagaSuccess(event);
     }
 
     // finish-fail
@@ -55,7 +57,7 @@ public class SagaOrchestratorConsumer {
     public void consumeFinishFailEvent(String payload){
         log.info("SagaOrchestratorConsumer: Received event from finish-fail topic with payload: {}", payload);
         var event = jsonUtil.toEvent(payload);
-        log.info(event.toString());
+        orchestratorService.finishSagaFail(event);
     }
 
 }
